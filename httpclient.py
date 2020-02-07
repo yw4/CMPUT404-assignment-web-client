@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 # coding: utf-8
 # Copyright 2016 Abram Hindle, https://github.com/tywtyw2002, and https://github.com/treedust
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #     http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -22,6 +22,7 @@ import sys
 import socket
 import re
 # you may use urllib to encode data appropriately
+import urllib
 import urllib.parse
 
 def help():
@@ -36,22 +37,41 @@ class HTTPClient(object):
     #def get_host_port(self,url):
 
     def connect(self, host, port):
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.socket.connect((host, port))
-        return None
+        try:
+            if port is None:
+                port = 80
+            self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.socket.connect((host, port))
+        except (socket.error,msg):
+            print('Failed to create socket. Error code:,')
+            sys.exit()
+        print("Socket created successfully")
+        return self.socket
 
     def get_code(self, data):
-        return None
+        try:
+            code = int(data.split(' ')[1])
+        except:
+            code = ""
+        return code
 
     def get_headers(self,data):
-        return None
+        try:
+            headers = int(data.split('\r\n\r\n')[0])
+        except:
+            headers=""
+        return headers
 
     def get_body(self, data):
-        return None
-    
+        try:
+            body = data.split('\r\n\r\n')[1]
+        except:
+            body =""
+        return body
+
     def sendall(self, data):
         self.socket.sendall(data.encode('utf-8'))
-        
+
     def close(self):
         self.socket.close()
 
@@ -68,13 +88,47 @@ class HTTPClient(object):
         return buffer.decode('utf-8')
 
     def GET(self, url, args=None):
-        code = 500
-        body = ""
+        #urllib.parse.urlparse(url)
+        host,port,path = self.get_components(url)
+        self.connect(host,port)
+        headers = (f"GET {path} HTTP/1.1\r\n"
+                   "User-Agent: curl/7.29.0\r\n"
+                   f"Host: {host}\r\n"
+                   "Accept: */*\r\n"
+                   "Connection: close\r\n"
+                   "\r\n")
+        self.sendall(headers)
+        receive_all = self.recvall(self.socket)
+        #print(receive_all)
+        code = self.get_code(receive_all)
+        body = self.get_body(receive_all)
+        self.close()
         return HTTPResponse(code, body)
 
     def POST(self, url, args=None):
-        code = 500
-        body = ""
+        host,port, path = self.get_components(url)
+        self.connect(host,port)
+        content_type = "application/x-www-form-urlencoded"
+        if args:
+            body = urllib.parse.urlencode(args)
+            content_length = len(body)
+        else:
+            body =""
+            content_length = 0
+
+        headers = (f"POST {path} HTTP/1.1\r\n"
+                   "User-Agent: curl/7.29.0\r\n"
+                   f"Host: {host}\r\n"
+                   f"Content-Length: {content_length}\r\n"
+                   f"Content-Type: {content_type}\r\n"
+                   "Accept: */*\r\n"
+                   "Connection: close\r\n"
+                   "\r\n")
+        self.sendall(headers+body)
+        receive_all = self.recvall(self.socket)
+        code = self.get_code(receive_all)
+        body = self.get_body(receive_all)
+        self.close()
         return HTTPResponse(code, body)
 
     def command(self, url, command="GET", args=None):
@@ -82,7 +136,27 @@ class HTTPClient(object):
             return self.POST( url, args )
         else:
             return self.GET( url, args )
-    
+
+    def get_components(self,url):
+        if (url.startswith("https://")):
+            components = urllib.parse.urlparse(url)
+        elif (url.startswith("http://")):
+            components = urllib.parse.urlparse(url)
+        else:
+            components = urllib.parse.urlparse("https://" + url)
+
+        host = components.hostname
+        port = components.port
+        path = components.path
+        if not path:
+            path = "/"
+        if not host:
+            host = 'localhost'
+        if not port:
+            port = 80
+        return host,port,path
+
+
 if __name__ == "__main__":
     client = HTTPClient()
     command = "GET"
