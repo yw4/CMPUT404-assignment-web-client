@@ -49,25 +49,19 @@ class HTTPClient(object):
         return self.socket
 
     def get_code(self, data):
-        try:
-            code = int(data.split(' ')[1])
-        except:
-            code = ""
-        return code
+        if not data:
+            return None
+        return int(data.split(' ')[1])
 
     def get_headers(self,data):
-        try:
-            headers = int(data.split('\r\n\r\n')[0])
-        except:
-            headers=""
-        return headers
+        if not data:
+            return None
+        return int(data.split('\r\n\r\n')[0])
 
     def get_body(self, data):
-        try:
-            body = data.split('\r\n\r\n')[1]
-        except:
-            body =""
-        return body
+        if not data:
+            return None
+        return data.split('\r\n\r\n')[1]
 
     def sendall(self, data):
         self.socket.sendall(data.encode('utf-8'))
@@ -92,7 +86,6 @@ class HTTPClient(object):
         host,port,path = self.get_components(url)
         self.connect(host,port)
         headers = (f"GET {path} HTTP/1.1\r\n"
-                   "User-Agent: curl/7.29.0\r\n"
                    f"Host: {host}\r\n"
                    "Accept: */*\r\n"
                    "Connection: close\r\n"
@@ -117,7 +110,6 @@ class HTTPClient(object):
             content_length = 0
 
         headers = (f"POST {path} HTTP/1.1\r\n"
-                   "User-Agent: curl/7.29.0\r\n"
                    f"Host: {host}\r\n"
                    f"Content-Length: {content_length}\r\n"
                    f"Content-Type: {content_type}\r\n"
